@@ -1,0 +1,12 @@
+{{- if .Values.monitoring.grafanaDashboard.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "chronorec-demo.fullname" . }}-dashboard
+  labels:
+    {{ .Values.monitoring.grafanaDashboard.label }}: {{ .Values.monitoring.grafanaDashboard.labelValue | quote }}
+    {{- include "chronorec-demo.labels" . | nindent 4 }}
+data:
+  chronorec-demo.json: |-
+{{ .Files.Get "files/chronorec-dashboard.json" | indent 4 }}
+{{- end }}

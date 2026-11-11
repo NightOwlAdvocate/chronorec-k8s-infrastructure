@@ -1,0 +1,8 @@
+Run this command to access the synthetic API:
+
+  kubectl -n {{ .Release.Namespace }} port-forward service/{{ include "chronorec-demo.fullname" . }} 8000:{{ .Values.service.port }}
+
+Then open http://localhost:8000/docs or test:
+
+  curl http://localhost:8000/healthz
+  curl http://localhost:8000/api/v1/summary
