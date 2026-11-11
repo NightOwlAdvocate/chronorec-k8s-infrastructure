@@ -1,25 +1,27 @@
-# Учебные сценарии отказов
+# Training failure scenarios
 
-## Правила безопасности
+## Safety rules
 
-Эти команды предназначены только для локального контекста kind. Перед началом:
+These commands are intended only for the local kind context. Before starting,
+run:
 
 ```bash
 kubectl config current-context
 ```
 
-Ожидаемый ответ: `kind-chronorec-lab`. Если ответ другой — остановиться. Здесь
-нет реальных данных, а все failure flags по умолчанию выключены.
+The expected result is `kind-chronorec-lab`. Stop if any other context is
+active. The lab contains no real user data, and all failure-injection flags are
+disabled by default.
 
-## 1. Удаление Pod: self-healing
+## 1. Pod deletion: self-healing
 
-**Цель:** увидеть, как Deployment возвращает желаемое число реплик.
+**Goal:** observe how a Deployment restores its desired replica count.
 
 ```bash
 kubectl -n chronorec-lab get pods -w
 ```
 
-В другом окне:
+In another terminal window, run:
 
 ```bash
 pod=$(kubectl -n chronorec-lab get pods \
@@ -28,14 +30,14 @@ pod=$(kubectl -n chronorec-lab get pods \
 kubectl -n chronorec-lab delete pod "$pod" --wait=false
 ```
 
-**Ожидается:** один Pod перейдёт в `Terminating`, ReplicaSet создаст замену,
-а число Ready снова станет `2/2`. Root cause здесь искусственный: ручное
-удаление. Восстановление выполняет controller Deployment.
+**Expected result:** one Pod enters `Terminating`, the ReplicaSet creates a
+replacement, and the Ready count returns to `2/2`. The root cause is artificial:
+a manual deletion. The Deployment controller performs the recovery.
 
-## 2. Неудачный readiness rollout и автоматический rollback
+## 2. Failed readiness rollout and automatic rollback
 
-**Цель:** доказать, что неготовая версия не получает трафик и не заменяет все
-рабочие реплики.
+**Goal:** prove that an unready release receives no traffic and cannot replace
+all working replicas.
 
 ```bash
 helm upgrade chronorec-demo helm/chronorec-demo \
@@ -46,7 +48,7 @@ helm upgrade chronorec-demo helm/chronorec-demo \
   --timeout 60s
 ```
 
-Команда должна завершиться ошибкой и выполнить rollback. Проверка:
+The command should fail and perform a rollback. Verify the result:
 
 ```bash
 helm history chronorec-demo -n chronorec-lab
@@ -55,14 +57,14 @@ kubectl get endpoints chronorec-demo -n chronorec-lab
 ./scripts/verify-deployment.sh
 ```
 
-**Root cause:** `/readyz` намеренно отвечает HTTP 503. **Исправление:** Helm
-`--atomic` возвращает предыдущие values; после rollback оба Pod снова Ready.
-В Helm 4 этот флаг работает, но выводит предупреждение о новом имени
-`--rollback-on-failure`; `--atomic` оставлен для совместимости с Helm 3.
+**Root cause:** `/readyz` intentionally returns HTTP 503. **Recovery:** Helm
+`--atomic` restores the previous values, after which both Pods become Ready
+again. Helm 4 accepts this flag but warns that its new name is
+`--rollback-on-failure`; `--atomic` remains here for Helm 3 compatibility.
 
 ## 3. CrashLoopBackOff
 
-**Цель:** найти startup failure через describe и logs.
+**Goal:** identify a startup failure through `describe` output and logs.
 
 ```bash
 helm upgrade chronorec-demo helm/chronorec-demo \
@@ -78,10 +80,11 @@ kubectl logs -n chronorec-lab \
   --all-containers --prefix --tail=50
 ```
 
-**Ожидается:** новый Pod перезапускается, а старые готовые Pod остаются благодаря
-rolling update. В логах виден `Intentional lab startup failure`.
+**Expected result:** the new Pod restarts while the old Ready Pods remain
+available because of the rolling-update strategy. The logs contain
+`Intentional lab startup failure`.
 
-Восстановление:
+Recover the release:
 
 ```bash
 helm upgrade chronorec-demo helm/chronorec-demo \
@@ -94,7 +97,8 @@ helm upgrade chronorec-demo helm/chronorec-demo \
 
 ## 4. OOMKilled
 
-**Цель:** связать exit/restart с memory limit, а не гадать по симптомам.
+**Goal:** connect an exit and restart to a memory limit instead of guessing from
+the symptoms.
 
 ```bash
 helm upgrade chronorec-demo helm/chronorec-demo \
@@ -106,7 +110,7 @@ helm upgrade chronorec-demo helm/chronorec-demo \
 kubectl get pods -n chronorec-lab -w
 ```
 
-После перезапуска найти новый Pod и проверить причину:
+After the restart, locate the new Pod and inspect the reason:
 
 ```bash
 kubectl get pods -n chronorec-lab \
@@ -115,9 +119,9 @@ kubectl describe pods -n chronorec-lab \
   -l app.kubernetes.io/instance=chronorec-demo
 ```
 
-В `Last State` ожидается `Reason: OOMKilled` и exit code 137.
+`Last State` should show `Reason: OOMKilled` and exit code 137.
 
-Восстановление:
+Recover the release:
 
 ```bash
 helm upgrade chronorec-demo helm/chronorec-demo \
@@ -129,18 +133,19 @@ helm upgrade chronorec-demo helm/chronorec-demo \
 ./scripts/verify-deployment.sh
 ```
 
-**Root cause:** процесс попытался выделить 256 MiB при лимите 64 MiB. В реальном
-инциденте нельзя просто бесконечно увеличивать limit: сначала проверяются профиль
-памяти, утечки, реальная нагрузка и корректные requests/limits.
+**Root cause:** the process attempted to allocate 256 MiB while its limit was
+64 MiB. In a real incident, do not simply keep increasing the limit. First
+inspect the memory profile, leaks, actual workload, and the correctness of the
+resource requests and limits.
 
-## Шаблон отчёта об инциденте
+## Incident report template
 
-Для каждого запуска сохранить без персональных данных:
+For each exercise, record the following without including personal data:
 
-- дата и контекст `kind-chronorec-lab`;
-- наблюдаемый симптом;
-- команды и ключевые строки вывода;
+- date and context (`kind-chronorec-lab`);
+- observed symptom;
+- commands and relevant output;
 - root cause;
-- исправление/rollback;
-- команда, подтвердившая восстановление;
-- чему научил сценарий и что изменилось бы в production.
+- fix or rollback;
+- command that confirmed recovery;
+- lesson learned and what would be different in production.

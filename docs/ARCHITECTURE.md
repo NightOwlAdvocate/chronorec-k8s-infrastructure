@@ -1,46 +1,53 @@
-# Архитектура и решения
+# Architecture and design decisions
 
-## Цель
+## Purpose
 
-Проект демонстрирует инфраструктурный путь приложения: тестирование, сборка
-контейнера, локальное развертывание, health checks, наблюдаемость и восстановление
-после контролируемых отказов.
+This project demonstrates the infrastructure lifecycle of an application:
+testing, container builds, local deployment, health checks, observability, and
+recovery from controlled failures.
 
-## Граница с реальным ChronoRec/MinFri
+## Boundary with the real ChronoRec/MinFri MVP
 
-Учебный API создан с нуля и не импортирует код реального MVP. Он не принимает
-запись пользовательских данных и отдаёт только три константные синтетические
-записи. Такой дизайн позволяет публично показывать инфраструктуру без раскрытия
-личных данных, закрытой логики продукта или будущих секретов.
+The training API was created from scratch and does not import code from the real
+MVP. It does not accept user-generated records and returns only three static,
+synthetic entries. This design makes it possible to demonstrate the
+infrastructure publicly without exposing personal data, private product logic,
+or future production secrets.
 
-## Компоненты
+## Components
 
-| Компонент | Роль | Почему он здесь |
+| Component | Role | Why it is included |
 |---|---|---|
-| FastAPI | Небольшая HTTP-нагрузка | Даёт probes, метрики и тестируемый API |
-| Docker | Воспроизводимый runtime | Одинаковое приложение локально и в CI |
-| kind | Локальный Kubernetes | Быстро создаётся и полностью удаляется |
-| Helm | Параметризованный релиз | Показывает upgrade/rollback и values |
-| Prometheus | Сбор метрик | Наблюдение запросов и состояния workload |
-| Grafana | Визуализация | Панели RPS, p95 latency и replicas |
-| GitHub Actions | Автоматическая проверка | Проверяет код и реальный деплой в kind |
+| FastAPI | Small HTTP workload | Provides probes, metrics, and a testable API |
+| Docker | Reproducible runtime | Runs the same application locally and in CI |
+| kind | Local Kubernetes | Creates and removes a disposable cluster quickly |
+| Helm | Parameterised release | Demonstrates upgrades, rollbacks, and configuration values |
+| Prometheus | Metrics collection | Observes requests and workload state |
+| Grafana | Visualisation | Displays request rate, p95 latency, and available replicas |
+| GitHub Actions | Automated validation | Tests the code and performs a real deployment to kind |
 
-## Надёжность и безопасность
+## Reliability and security
 
-- Две реплики и rolling update с `maxUnavailable: 0` сохраняют старую готовую
-  версию во время неудачного обновления.
-- Readiness probe исключает неготовый Pod из Service endpoints.
-- Liveness probe перезапускает зависший процесс, но не маскирует readiness.
-- Requests и limits делают планирование явным и позволяют изучить OOMKilled.
-- Контейнер и Pod работают без root; capabilities удалены, root filesystem
-  только для чтения, service-account token не монтируется.
-- NetworkPolicy разрешает вход к API из namespace кластера. Это учебная базовая
-  политика; kind CNI не следует считать доказательством production-сегментации.
-- PDB защищает одну доступную реплику при добровольных disruption, но не спасает
-  от падения ноды или нехватки ресурсов.
+- Two replicas and a rolling update with `maxUnavailable: 0` preserve the old,
+  ready version during a failed update.
+- The readiness probe removes an unready Pod from Service endpoints.
+- The liveness probe restarts an unhealthy process without replacing readiness
+  semantics.
+- Resource requests and limits make scheduling explicit and support the
+  OOMKilled exercise.
+- The container and Pod run without root privileges. Linux capabilities are
+  dropped, the root filesystem is read-only, and the service-account token is
+  not mounted.
+- The NetworkPolicy permits access to the API from namespaces in the cluster.
+  This is a basic training policy; the kind CNI is not evidence of production
+  network segmentation.
+- The PodDisruptionBudget preserves one available replica during voluntary
+  disruptions. It cannot protect against node failure or insufficient cluster
+  resources.
 
-## Что намеренно не включено
+## Deliberate exclusions
 
-База данных, аутентификация, ingress, TLS, облачный registry, persistent volumes,
-backup и реальные данные отсутствуют. Их нельзя «додумать» в описании проекта:
-это следующие отдельные этапы, если они действительно понадобятся.
+The lab has no database, authentication, ingress, TLS, cloud registry,
+persistent volumes, backups, or real user data. These capabilities must not be
+implied in the project description. They are separate future stages that should
+only be added when they solve a demonstrated requirement.

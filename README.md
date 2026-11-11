@@ -1,30 +1,30 @@
 # ChronoRec Kubernetes Infrastructure Lab
 
-Отдельный учебный репозиторий для практики контейнеров, Kubernetes, Helm,
-GitHub Actions и наблюдаемости на примере **синтетического** ChronoRec API.
+A standalone learning repository for practising containers, Kubernetes, Helm,
+GitHub Actions, and observability with a **synthetic** ChronoRec API.
 
-> Это не backend реального ChronoRec/MinFri и не хранилище пользовательских
-> данных. Здесь нет настоящих голосовых записей, медицинских сведений или
-> персональных данных. Все примеры придуманы специально для лаборатории.
+> This is not the backend of the real ChronoRec/MinFri MVP and it is not a
+> user-data store. It contains no real voice recordings, medical information,
+> or personal data. Every example was invented specifically for this lab.
 
-## Что уже создано
+## What is included
 
-- минимальный read-only FastAPI backend с `/healthz`, `/readyz`, `/metrics`;
-- безопасный Dockerfile: непривилегированный пользователь и небольшой образ;
-- локальный двухузловой kind-кластер;
-- Helm chart с двумя репликами, probes, resource limits, PDB и NetworkPolicy;
-- CI: lint, тесты, сборка образа и реальный smoke test в kind;
-- Prometheus, Grafana и готовый dashboard;
-- воспроизводимые сценарии Pod deletion, failed readiness rollout,
-  CrashLoopBackOff и OOMKilled.
+- a minimal read-only FastAPI backend with `/healthz`, `/readyz`, and `/metrics`;
+- a security-focused Dockerfile with a non-root user and a small base image;
+- a local two-node kind cluster;
+- a Helm chart with two replicas, probes, resource limits, a PDB, and a NetworkPolicy;
+- CI for linting, tests, image builds, and a real smoke test in kind;
+- Prometheus, Grafana, and a preconfigured dashboard;
+- reproducible Pod deletion, failed readiness rollout, CrashLoopBackOff, and
+  OOMKilled scenarios.
 
-Текущий протокол проверок находится в [docs/VERIFICATION.md](docs/VERIFICATION.md).
+See [docs/VERIFICATION.md](docs/VERIFICATION.md) for the current verification record.
 
-## Архитектура
+## Architecture
 
 ```mermaid
 flowchart LR
-    User[Локальный пользователь] -->|port-forward| SVC[ClusterIP Service]
+    User[Local user] -->|port-forward| SVC[ClusterIP Service]
     SVC --> P1[FastAPI pod 1]
     SVC --> P2[FastAPI pod 2]
     P1 -->|/metrics| PROM[Prometheus]
@@ -33,56 +33,59 @@ flowchart LR
     GH[GitHub Actions] -->|test, build, deploy, verify| KIND[kind cluster]
 ```
 
-Подробные решения и границы проекта: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+For design decisions and project boundaries, see
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
-## Быстрый старт на этом Mac
+## Quick start on macOS
 
-Первичная проверка 11 ноября 2026 года обнаружила macOS на Apple Silicon,
-выключенный Docker Desktop и отсутствие `kind`/Helm. В ходе настройки Docker был
-запущен, `kind` 0.33.0 и Helm 4.3.1 установлены, а весь локальный путь до Grafana
-и четырёх failure-сценариев проверен. Детали — в протоколе проверок.
+The initial environment check on 11 November 2026 found an Apple Silicon Mac,
+Docker Desktop stopped, and `kind` and Helm missing. During setup, Docker was
+started, kind 0.33.0 and Helm 4.3.1 were installed, and the complete local path
+through Grafana and all four failure scenarios was verified. See the verification
+record for details.
 
-1. На новой машине установить инструменты и запустить Docker Desktop по инструкции
-   [docs/SETUP_MAC.md](docs/SETUP_MAC.md).
-2. Проверить среду:
+1. On a new machine, install the required tools and start Docker Desktop by
+   following [docs/SETUP_MAC.md](docs/SETUP_MAC.md).
+
+2. Check the environment:
 
    ```bash
    ./scripts/check-environment.sh
    ```
 
-3. Создать кластер, собрать образ, развернуть Helm chart и выполнить smoke test:
+3. Create the cluster, build the image, deploy the Helm chart, and run the smoke test:
 
    ```bash
    ./scripts/bootstrap-lab.sh
    ```
 
-4. Открыть API в отдельном окне терминала:
+4. Access the API from a separate terminal window:
 
    ```bash
    kubectl -n chronorec-lab port-forward service/chronorec-demo 8000:80
    ```
 
-   Затем открыть <http://localhost:8000/docs> или выполнить:
+   Then open <http://localhost:8000/docs> or run:
 
    ```bash
    curl http://localhost:8000/api/v1/summary
    ```
 
-5. Установить мониторинг:
+5. Install monitoring:
 
    ```bash
    ./scripts/install-monitoring.sh
    ```
 
-   Доступ к Grafana описан в [docs/MONITORING.md](docs/MONITORING.md).
+   Grafana access is documented in [docs/MONITORING.md](docs/MONITORING.md).
 
-6. После практики удалить только учебный кластер:
+6. After the lab, delete only the training cluster:
 
    ```bash
    kind delete cluster --name chronorec-lab
    ```
 
-## Локальная разработка API без Kubernetes
+## Local API development without Kubernetes
 
 ```bash
 make install-dev
@@ -91,36 +94,37 @@ make test
 make run
 ```
 
-Приложение будет доступно на <http://localhost:8000/docs>. Такой запуск полезен,
-чтобы сначала понять API, а уже потом добавлять Docker и Kubernetes.
+The application will be available at <http://localhost:8000/docs>. This mode is
+useful for understanding the API before adding Docker and Kubernetes.
 
-## Учебные сценарии отказов
+## Failure scenarios
 
-Выполнять только в локальном кластере `chronorec-lab`:
+Run these scenarios only in the local `chronorec-lab` cluster:
 
-1. удалить Pod и увидеть автоматическое восстановление;
-2. выпустить неготовую версию и проверить автоматический Helm rollback;
-3. создать CrashLoopBackOff и найти причину в логах;
-4. вызвать OOMKilled, проверить лимит памяти и восстановить релиз.
+1. delete a Pod and observe automatic recovery;
+2. release an unready version and verify the automatic Helm rollback;
+3. create a CrashLoopBackOff and identify the cause in the logs;
+4. trigger OOMKilled, inspect the memory limit, and restore the release.
 
-Команды, ожидаемые симптомы и безопасное восстановление приведены в
+Commands, expected symptoms, and safe recovery steps are provided in
 [docs/runbooks/FAILURE_SCENARIOS.md](docs/runbooks/FAILURE_SCENARIOS.md).
 
-## Структура репозитория
+## Repository structure
 
 ```text
-app/                    FastAPI demo и Dockerfile
+app/                    FastAPI demo and Dockerfile
 helm/chronorec-demo/    Helm chart
-kind/                   конфигурация локального кластера
-monitoring/             параметры Prometheus/Grafana
-scripts/                проверка среды и воспроизводимые операции
-tests/                  автоматические тесты API
-docs/runbooks/           диагностика и восстановление после отказов
+kind/                   Local cluster configuration
+monitoring/             Prometheus and Grafana values
+scripts/                Environment checks and reproducible operations
+tests/                  Automated API tests
+docs/runbooks/          Failure diagnosis and recovery procedures
 .github/workflows/      CI pipeline
 ```
 
-## Честное описание для портфолио
+## Honest portfolio positioning
 
-Этот проект подтверждает практику с локальной учебной средой Kubernetes. Он не
-должен описываться как опыт поддержки production-кластера. Добавлять в CV стоит
-только те результаты, которые отмечены как проверенные в `docs/VERIFICATION.md`.
+This project demonstrates hands-on work in a local Kubernetes learning
+environment. It must not be presented as experience operating a production
+cluster. Only results marked as verified in `docs/VERIFICATION.md` should be
+included in a CV or discussed as completed work.

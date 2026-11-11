@@ -1,53 +1,53 @@
-# Prometheus и Grafana
+# Prometheus and Grafana
 
-## Установка
+## Installation
 
-После работающего приложения:
+After the application is running, execute:
 
 ```bash
 ./scripts/install-monitoring.sh
 ```
 
-Скрипт устанавливает `kube-prometheus-stack`, включает ServiceMonitor API и
-добавляет dashboard из Helm chart. Alertmanager намеренно выключен, чтобы
-уменьшить локальное потребление ресурсов.
+The script installs `kube-prometheus-stack`, enables the ServiceMonitor API, and
+loads the dashboard from the Helm chart. Alertmanager is intentionally disabled
+to reduce resource consumption in the local lab.
 
-## Открыть Grafana
+## Access Grafana
 
-Получить автоматически созданный пароль администратора:
+Retrieve the automatically generated administrator password:
 
 ```bash
 kubectl -n monitoring get secret monitoring-grafana \
   -o go-template='{{index .data "admin-password" | base64decode}}{{"\n"}}'
 ```
 
-Запустить port-forward:
+Start a port-forward:
 
 ```bash
 kubectl -n monitoring port-forward service/monitoring-grafana 3000:80
 ```
 
-Открыть <http://localhost:3000>, пользователь `admin`. Найти dashboard
-`ChronoRec Infrastructure Demo`.
+Open <http://localhost:3000> and sign in as `admin`. Open the
+`ChronoRec Infrastructure Demo` dashboard.
 
-## Создать безопасную тестовую нагрузку
+## Generate safe test traffic
 
-В отдельном окне открыть API:
+In a separate terminal window, expose the API:
 
 ```bash
 kubectl -n chronorec-lab port-forward service/chronorec-demo 8000:80
 ```
 
-Затем выполнить несколько read-only запросов:
+Then send several read-only requests:
 
 ```bash
 for i in {1..30}; do curl -s http://localhost:8000/api/v1/summary >/dev/null; done
 ```
 
-Через 15–60 секунд график request rate должен измениться. Это проверяет путь
-API → `/metrics` → ServiceMonitor → Prometheus → Grafana.
+The request-rate panel should change within 15–60 seconds. This verifies the
+complete path: API → `/metrics` → ServiceMonitor → Prometheus → Grafana.
 
-## Диагностика
+## Troubleshooting
 
 ```bash
 kubectl -n chronorec-lab get servicemonitor
@@ -55,9 +55,11 @@ kubectl -n monitoring get pods
 kubectl -n chronorec-lab get endpoints chronorec-demo
 ```
 
-Пароль Grafana не записывается в Git и не должен попадать в скриншоты портфолио.
+The Grafana password is not stored in Git and must not appear in portfolio
+screenshots.
 
-На проверенном Mac Grafana 13 выполняла долгий первый scan встроенных plugins.
-Стандартная liveness probe успела перезапустить контейнер. Поэтому локальные
-values дают Grafana больше CPU/памяти и 300 секунд на первый старт. После
-изменения Pod стал `3/3 Running`, без рестартов.
+During verification on the local Mac, Grafana 13 performed a long initial scan
+of its built-in plugins. The default liveness probe restarted the container
+before that scan completed. The local values therefore provide more CPU and
+memory and allow 300 seconds for the first startup. After this change, the Pod
+reached `3/3 Running` with no restarts.

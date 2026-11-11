@@ -1,32 +1,34 @@
-# Подготовка Mac
+# macOS setup
 
-## Что показала проверка
+## Verified environment
 
-Первичная проверка обнаружила macOS 27.0.1 (Apple Silicon), Git, Python 3.14,
-Docker CLI и `kubectl`. Docker Desktop был выключен, а `kind` и Helm отсутствовали.
-После этого Docker Desktop был запущен, а Homebrew установил kind 0.33.0 и Helm
-4.3.1. Раздел ниже остаётся инструкцией для чистой машины.
+The initial check found macOS 27.0.1 on Apple Silicon, Git, Python 3.14, the
+Docker CLI, and `kubectl`. Docker Desktop was stopped, while `kind` and Helm were
+not installed. Docker Desktop was subsequently started, and Homebrew installed
+kind 0.33.0 and Helm 4.3.1. The steps below remain the setup procedure for a
+clean machine.
 
-## 1. Запустить Docker Desktop
+## 1. Start Docker Desktop
 
-Откройте Docker Desktop как обычное приложение и дождитесь статуса Engine
-running. Проверка:
+Open Docker Desktop as a normal application and wait until the engine reports
+that it is running. Verify it with:
 
 ```bash
 docker info
 ```
 
-Если команда выводит сведения о Server без ошибки подключения, Docker готов.
+Docker is ready when the command prints Server information without a connection
+error.
 
-## 2. Установить kind и Helm
+## 2. Install kind and Helm
 
-Если Homebrew уже установлен:
+If Homebrew is already installed, run:
 
 ```bash
 brew install kind helm
 ```
 
-Проверка:
+Verify the tools:
 
 ```bash
 kind version
@@ -34,22 +36,22 @@ helm version
 kubectl version --client
 ```
 
-Локально лаборатория проверена с kind 0.33.0 и Helm 4.3.1. CI дополнительно
-проверяет chart с Helm 3.18.4, чтобы сохранить совместимость Helm 3.
+The lab was verified locally with kind 0.33.0 and Helm 4.3.1. CI also validates
+the chart with Helm 3.18.4 to preserve Helm 3 compatibility.
 
-## 3. Проверить всю среду одной командой
+## 3. Check the complete environment
 
-Из корня репозитория:
+From the repository root, run:
 
 ```bash
 ./scripts/check-environment.sh
 ```
 
-Каждая строка `[ok]` означает выполненную предпосылку. Строка `[missing]` или
-`[action needed]` объясняет, что ещё требуется.
+Each `[ok]` line confirms a prerequisite. A `[missing]` or `[action needed]`
+line explains what still needs attention.
 
-## Почему выбран kind
+## Why kind was selected
 
-kind запускает Kubernetes-ноды как Docker-контейнеры. Он лёгкий, легко удаляется
-и подходит для локального обучения и CI. Это не production-платформа и не
-заменяет managed Kubernetes или многосерверный кластер.
+kind runs Kubernetes nodes as Docker containers. It is lightweight, disposable,
+and suitable for local learning and CI. It is not a production platform and
+does not replace managed Kubernetes or a multi-server cluster.
